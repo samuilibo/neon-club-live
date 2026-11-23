@@ -33,6 +33,9 @@ const I18N: Record<string, [string, string]> = {
   musicLock: ['Müziği sabitle (etkinlik ve sohbet oylaması parçayı değiştirmesin)', 'Lock music (events and chat votes do not change the track)'],
   multiLive: ['{n} adet /live sayfası açık. Her biri kendi müziğini ayrı çalar ve bu yüzden müzik değişiyormuş gibi duyulur. Yalnızca OBS içindeki sayfayı açık bırak veya diğerlerine ?mute ekle.', '{n} /live pages are open. Each plays its own music, so it sounds like the track keeps changing. Keep only the OBS one open or add ?mute to the others.'],
   noFiles: ['music/ klasöründe desteklenen dosya bulunamadı (mp3, wav, ogg, m4a, aac, flac, opus, webm). Yerleşik müzik çalıyor.', 'No supported files in music/ (mp3, wav, ogg, m4a, aac, flac, opus, webm). Playing built-in music.'],
+  ytLinks: ['YouTube bağlantıları (her satıra bir link, isteğe bağlı BPM: link | 128)', 'YouTube links (one per line, optional BPM: link | 128)'],
+  ytSave: ['Bağlantıları kaydet', 'Save links'],
+  ytNote: ['Resmi YouTube oynatıcısıyla çalar, yayında küçük bir video kartı olarak görünür (YouTube kuralı). Sadece kullanım izni olan şarkıları ekle. Kaynağı "youtube" seçersen yalnızca bu linkler çalar. Yerleştirmeye kapalı videolar atlanır, bazı videolarda reklam çıkabilir.', 'Plays through the official YouTube player and shows as a small video card on stream (YouTube rule). Only add songs you may use. Choose source "youtube" to play only these links. Videos that block embedding are skipped; some videos may show ads.'],
   lights: ['Işıklar', 'Lights'], intensity: ['Yoğunluk', 'Intensity'], lasers: ['Lazerler', 'Lasers'], fog: ['Sis', 'Fog'], strobe: ['Flaş (yumuşak)', 'Strobe (soft)'], mode: ['Mod', 'Mode'],
   camera: ['Kamera', 'Camera'], auto: ['Otomatik', 'Auto'], welcome: ['Yeni gelen için giriş çekimi', 'Welcome shot for new arrivals'],
   events: ['Etkinlikler', 'Events'], current: ['Şu an', 'Current'], startEvent: ['Başlat', 'Start'], vote: ['Oylama başlat', 'Start vote'], eventMinutes: ['Etkinlik süresi (dk)', 'Event length (min)'], autoVote: ['Otomatik oylama', 'Automatic vote'],
@@ -115,7 +118,10 @@ function render() {
   <div class="row"><label>${t('crossfade')}</label><input type="range" id="xf" min="0" max="12" step="0.5" value="${s.music.crossfade}"><span id="xfV">${s.music.crossfade}</span></div>
   <div class="row"><label>${t('bpm')}</label><input type="number" id="bpmO" min="0" max="200" step="0.5" value="${s.music.bpmOverride}"></div>
   <div class="row"><label>${t('shuffle')}</label>${chk('shuf', s.music.shuffle)}<label style="min-width:0">${t('repeat')}</label><select id="rep">${['off', 'all', 'one'].map((v) => opt(v, v, s.music.repeat)).join('')}</select>
-    <label style="min-width:0">${t('source')}</label><select id="msrc">${['auto', 'files', 'builtin'].map((v) => opt(v, v, s.music.source)).join('')}</select></div>
+    <label style="min-width:0">${t('source')}</label><select id="msrc">${['auto', 'files', 'builtin', 'youtube'].map((v) => opt(v, v, s.music.source)).join('')}</select></div>
+  <div class="row" style="flex-direction:column;align-items:stretch"><label>${t('ytLinks')}</label>
+    <textarea id="ytl" rows="4" spellcheck="false" placeholder="https://www.youtube.com/watch?v=...&#10;https://youtu.be/... | 128" style="width:100%;font:inherit;font-size:.85em;background:#0d0d16;color:#fff;border:1px solid #333;border-radius:6px;padding:6px">${esc((s.music.youtube ?? []).join('\n'))}</textarea>
+    <button id="ytSave" style="margin-top:6px">${t('ytSave')}</button><p class="mut" style="margin:4px 0 0">${t('ytNote')}</p></div>
   <div class="row"><label style="min-width:0">${chk('mlock', s.music.lock)} ${t('musicLock')}</label></div>
   <div class="row"><label>${t('genre')}</label><select id="genre">${GENRES.map((g) => opt(g, GENRE_LABEL[g], '')).join('')}</select><button id="genreGo">▶</button></div>
   <div id="musicWarn"></div>
@@ -186,9 +192,13 @@ function bind() {
   };
   on('scOn', 'change', scUpd); on('scDur', 'change', scUpd); on('scCom', 'change', scUpd);
   for (const e of SC_EFFECTS) { on(`sc_on_${e}`, 'change', scUpd); on(`sc_t_${e}`, 'change', scUpd); }
-  const mUpd = () => { $('xfV').textContent = val('xf'); patch({ music: { volume: num('vol'), crossfade: num('xf'), bpmOverride: num('bpmO'), shuffle: checked('shuf'), repeat: val('rep') as Settings['music']['repeat'], source: val('msrc') as Settings['music']['source'], lock: checked('mlock') } }); };
+  const mUpd = () => { $('xfV').textContent = val('xf'); patch({ music: { volume: num('vol'), crossfade: num('xf'), bpmOverride: num('bpmO'), shuffle: checked('shuf'), repeat: val('rep') as Settings['music']['repeat'], source: val('msrc') as Settings['music']['source'], lock: checked('mlock'), youtube: state!.settings.music.youtube ?? [] } }); };
   for (const id of ['vol', 'xf']) on(id, 'input', mUpd);
   for (const id of ['bpmO', 'shuf', 'rep', 'msrc', 'mlock']) on(id, 'change', mUpd);
+  on('ytSave', 'click', () => {
+    const lines = ($('ytl') as HTMLTextAreaElement).value.split(/\r?\n/).map((l) => l.trim()).filter(Boolean).slice(0, 200);
+    patch({ music: { ...state!.settings.music, youtube: lines } });
+  });
   on('mPrev', 'click', () => send({ t: 'music', cmd: 'prev' })); on('mNext', 'click', () => send({ t: 'music', cmd: 'next' }));
   on('mToggle', 'click', () => send({ t: 'music', cmd: 'toggle' })); on('mRescan', 'click', () => send({ t: 'music', cmd: 'rescan' }));
   on('genreGo', 'click', () => send({ t: 'music', cmd: 'genre', arg: val('genre') }));

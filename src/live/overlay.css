@@ -51,6 +51,9 @@ html,body{margin:0;height:100%;background:#000;overflow:hidden;cursor:none;font-
 .notice{position:absolute;left:50%;bottom:13%;transform:translateX(-50%);padding:.5em 1.1em;font-size:.9em;max-width:80%;text-align:center;opacity:0;transition:opacity .4s}
 .notice.on{opacity:1}
 .hint{position:absolute;left:0;right:0;bottom:0;padding:.55em 2.2%;font-size:.8em;letter-spacing:.03em;background:linear-gradient(0deg,rgba(0,0,0,.7),transparent);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center;opacity:.92}
+.ytcard{display:none;position:relative;width:max(356px,17em);aspect-ratio:16/9;margin-bottom:.6em;border-radius:.6em;overflow:hidden;border:2px solid var(--c1);box-shadow:0 0 1.2em rgba(255,43,214,.45);background:#000}
+.ytcard.on{display:block}
+.ytcard .yt{position:absolute;inset:0}.ytcard iframe{width:100%;height:100%;border:0;display:block}
 .mticker{position:absolute;left:0;right:0;top:46%;overflow:hidden;white-space:nowrap;pointer-events:none;opacity:0;transition:opacity .6s;background:linear-gradient(90deg,transparent,rgba(10,0,25,.72) 12%,rgba(10,0,25,.72) 88%,transparent);border-top:2px solid var(--c1,#ff2bd6);border-bottom:2px solid var(--c2,#29f0ff);padding:.45em 0;font-size:1.15em;font-weight:800;letter-spacing:.04em;text-shadow:0 0 .5em rgba(255,43,214,.8)}
 .mticker.on{opacity:1}
 .mticker span{display:inline-block;padding-left:100%;animation:mtick linear 1 forwards}

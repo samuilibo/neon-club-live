@@ -28,6 +28,7 @@ export class Overlay {
   private root: HTMLElement;
   private count!: HTMLElement; private countLabel!: HTMLElement; private song!: HTMLElement; private songLabel!: HTMLElement; private bpm!: HTMLElement;
   private ev!: HTMLElement; private evLabel!: HTMLElement; private next!: HTMLElement; private nextLabel!: HTMLElement; private timer!: HTMLElement;
+  ytHost!: HTMLElement;
   private toasts!: HTMLElement; private banner!: HTMLElement; private voteBox!: HTMLElement; private hint!: HTMLElement; private notice!: HTMLElement;
   private demo!: HTMLElement; private audioHint!: HTMLElement; private curtain!: HTMLElement; private fadeEl!: HTMLElement;
   private queueBox!: HTMLElement;
@@ -55,6 +56,7 @@ export class Overlay {
     this.voteBox = el('div', 'card vote', tr);
     this.queueBox = el('div', 'card queue', tr);
     const bl = el('div', 'hud bl', root);
+    this.ytHost = el('div', 'ytcard', bl);
     const np = el('div', 'card np', bl);
     el('div', 'eq', np).innerHTML = '<i></i><i></i><i></i><i></i>';
     const npT = el('div', '', np);

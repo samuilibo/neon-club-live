@@ -84,7 +84,7 @@ export interface MusicInfo {
 }
 
 export interface LightSettings { intensity: number; lasers: boolean; fog: number; strobe: boolean; mode: 'auto' | ClubEvent['light'] }
-export interface MusicSettings { volume: number; shuffle: boolean; repeat: 'off' | 'all' | 'one'; crossfade: number; bpmOverride: number; source: 'auto' | 'files' | 'builtin'; lock: boolean }   // lock: events / chat votes never change the track
+export interface MusicSettings { volume: number; shuffle: boolean; repeat: 'off' | 'all' | 'one'; crossfade: number; bpmOverride: number; source: 'auto' | 'files' | 'builtin' | 'youtube'; lock: boolean; youtube: string[] }   // lock: events / chat votes never change the track
 export interface ScSettings { showComments: boolean; enabled: boolean; effects: Record<ScEffect, { on: boolean; minTier: number }>; baseDurationMs: number }
 
 export interface Settings {
@@ -240,7 +240,7 @@ export function defaultSettings(): Settings {
     maxCharacters: 100,
     commands,
     superchat: { enabled: true, showComments: true, effects, baseDurationMs: 6000 },
-    music: { volume: 0.8, shuffle: true, repeat: 'all', crossfade: 4, bpmOverride: 0, source: 'auto', lock: false },
+    music: { volume: 0.8, shuffle: true, repeat: 'all', crossfade: 4, bpmOverride: 0, source: 'auto', lock: false, youtube: [] },
     lights: { intensity: 1, lasers: true, fog: 0.6, strobe: false, mode: 'auto' },
     quality: 'high',
     dynamicResolution: true,

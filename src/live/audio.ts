@@ -4,8 +4,9 @@
 //  - analyses bass / mid / treble, spectrum, level, beats and BPM for lights and dances
 import { GENRES, GENRE_LABEL, type Genre, type MusicInfo, type MusicSettings } from '../../shared/protocol.ts';
 import { rng, type AudioFrame } from './engine.ts';
+import { parseYouTube, YouTubeDeck } from './youtube.ts';
 
-export interface Track { title: string; genre: string; url?: string; builtin: boolean }
+export interface Track { title: string; genre: string; url?: string; builtin: boolean; yt?: string; bpm?: number }
 
 interface Preset {
   bpm: number; root: number; scale: number[]; kick: string; snare: string; hat: string; perc?: string;
@@ -179,7 +180,7 @@ class Synth {
   }
 }
 
-interface Deck { el?: HTMLAudioElement; gain?: GainNode; synth?: Synth; track: Track; startedAt: number }
+interface Deck { el?: HTMLAudioElement; gain?: GainNode; synth?: Synth; yt?: YouTubeDeck; track: Track; startedAt: number }
 
 export class AudioSystem {
   ctx: AudioContext;
@@ -189,11 +190,15 @@ export class AudioSystem {
   playing = false;
   bpmDetected = 0;
   onTrack: ((t: Track) => void) | null = null;
+  /** fired when a track learns its real title later (YouTube) */
+  onTitle: ((t: Track) => void) | null = null;
+  /** element that holds the visible YouTube player card */
+  ytHost: HTMLElement | null = null;
   private master: GainNode;
   private analyser: AnalyserNode;
   private freq: Uint8Array<ArrayBuffer>;
   private deck: Deck | null = null;
-  private settings: MusicSettings = { volume: 0.8, shuffle: true, repeat: 'all', crossfade: 4, bpmOverride: 0, source: 'auto', lock: false };
+  private settings: MusicSettings = { volume: 0.8, shuffle: true, repeat: 'all', crossfade: 4, bpmOverride: 0, source: 'auto', lock: false, youtube: [] };
   private flux: number[] = [];
   private prevLow = 0;
   private onsets: number[] = [];
@@ -220,6 +225,7 @@ export class AudioSystem {
   get suspended() { return this.ctx.state !== 'running'; }
   async resume() {
     if (this.playing && this.deck?.el?.paused) void this.deck.el.play().catch(() => { /* still blocked */ });
+    if (this.playing) this.deck?.yt?.play();
     try { await this.ctx.resume(); } catch { /* needs a user gesture outside OBS */ }
   }
 
@@ -228,16 +234,20 @@ export class AudioSystem {
     try { files = await (await fetch('/api/music')).json(); } catch { /* server offline: built-in only */ }
     const builtin: Track[] = GENRES.flatMap((g) => PRESETS[g].name.map((n) => ({ title: `${n} — ${GENRE_LABEL[g]}`, genre: g, builtin: true })));
     const local: Track[] = files.map((f) => ({ title: f.title, genre: f.genre || 'local', url: `/music/${f.file.split('/').map(encodeURIComponent).join('/')}`, builtin: false }));
+    const yt: Track[] = (this.settings.youtube ?? []).map(parseYouTube).filter((v) => !!v)
+      .map((v) => ({ title: `YouTube · ${v.id}`, genre: 'youtube', yt: v.id, bpm: v.bpm || undefined, builtin: false }));
+    const own = [...local, ...yt];
     const src = this.settings.source;
-    this.playlist = src === 'builtin' ? builtin : src === 'files' ? (local.length ? local : builtin) : local.length ? local : builtin;
-    if (src === 'auto' && local.length) this.playlist = [...local, ...builtin.filter((b) => !local.some((l) => l.genre === b.genre))];
+    this.playlist = src === 'builtin' ? builtin : src === 'files' ? (own.length ? own : builtin) : src === 'youtube' ? (yt.length ? yt : builtin) : own.length ? own : builtin;
+    if (src === 'auto' && own.length) this.playlist = [...own, ...builtin.filter((b) => !own.some((l) => l.genre === b.genre))];
     this.index = Math.min(this.index, this.playlist.length - 1);
   }
 
   setSettings(s: MusicSettings) {
-    const reload = s.source !== this.settings.source;
+    const reload = s.source !== this.settings.source || JSON.stringify(s.youtube ?? []) !== JSON.stringify(this.settings.youtube ?? []);
     this.settings = { ...s };
     this.master.gain.setTargetAtTime(s.volume, this.ctx.currentTime, 0.05);
+    this.deck?.yt?.setVolume(s.volume);
     if (reload) void this.loadPlaylist();
   }
 
@@ -247,6 +257,7 @@ export class AudioSystem {
   toggle() {
     if (!this.deck) { this.start(); return; }
     this.playing = !this.playing;
+    if (this.deck.yt) { if (this.playing) this.deck.yt.play(); else this.deck.yt.pause(); }
     if (this.deck.el) { if (this.playing) void this.deck.el.play(); else this.deck.el.pause(); }
     else if (this.playing) void this.ctx.resume(); else void this.ctx.suspend();
   }
@@ -262,12 +273,13 @@ export class AudioSystem {
     this.play(i);
   }
   private autoAdvance = false;
+  private ytFails = 0;
 
   playGenre(genre: string) {
     const c = this.playlist.map((t, i) => ({ t, i })).filter((e) => e.t.genre === genre && e.i !== this.index);
     if (c.length) { this.play(c[Math.floor(Math.random() * c.length)].i); return; }
     // "files only": never switch to the built-in synth, keep the current track
-    if (this.settings.source === 'files') return;
+    if (this.settings.source === 'files' || this.settings.source === 'youtube') return;
     // genre not on disk: fall back to the built-in generator for that genre
     if ((GENRES as readonly string[]).includes(genre)) {
       const p = PRESETS[genre as Genre];
@@ -288,6 +300,7 @@ export class AudioSystem {
     const old = this.deck;
     if (this.ctx.state === 'suspended' && this.playing) void this.ctx.resume();
     if (old?.synth) old.synth.stop(xf);
+    if (old?.yt) old.yt.stop(xf);
     if (old?.el && old.gain) {
       const g = old.gain, el = old.el;
       g.gain.cancelScheduledValues(this.ctx.currentTime);
@@ -297,7 +310,21 @@ export class AudioSystem {
     }
     const deck: Deck = { track, startedAt: this.ctx.currentTime };
     this.beatBase = Math.ceil(this.frame.beats);         // keep the global beat clock monotonic across tracks
-    if (track.builtin) {
+    if (track.yt) {
+      if (!this.ytHost) this.ytHost = document.getElementById('overlay') ?? document.body;
+      deck.yt = new YouTubeDeck(this.ytHost, track.yt, this.settings.volume, old ? xf : 0.4,
+        (title) => { this.ytFails = 0; track.title = title; if (this.deck === deck) this.onTitle?.(track); },
+        () => {
+          if (this.deck !== deck) return;
+          // every link failed in a row (offline, embedding blocked): don't spin, fall back to the built-in music
+          if (++this.ytFails >= Math.max(1, this.playlist.filter((t) => t.yt).length)) {
+            this.ytFails = 0;
+            console.warn('No YouTube link could be played - switching to built-in music');
+            const g = GENRES[Math.floor(Math.random() * GENRES.length)], p = PRESETS[g];
+            this.playTrack({ title: `${p.name[0]} — ${GENRE_LABEL[g]}`, genre: g, builtin: true });
+          } else if (!this.settings.lock) setTimeout(() => { if (this.deck === deck) this.advance(); }, 800);
+        });
+    } else if (track.builtin) {
       deck.synth = new Synth(this.ctx, this.master, PRESETS[track.genre as Genre] ?? PRESETS.edm, (this.seedCounter++ * 7919) ^ hash(track.title));
       deck.synth.fade(0.9, old ? xf : 0.4);
     } else {
@@ -322,8 +349,8 @@ export class AudioSystem {
 
   info(): MusicInfo {
     const d = this.deck;
-    const dur = d?.synth ? d.synth.duration : d?.el && Number.isFinite(d.el.duration) ? d.el.duration : 0;
-    const pos = d?.synth ? d.synth.position : d?.el ? d.el.currentTime : 0;
+    const dur = d?.synth ? d.synth.duration : d?.yt ? d.yt.duration : d?.el && Number.isFinite(d.el.duration) ? d.el.duration : 0;
+    const pos = d?.synth ? d.synth.position : d?.yt ? d.yt.position : d?.el ? d.el.currentTime : 0;
     return {
       title: d?.track.title ?? '', genre: d?.track.genre ?? '', bpm: Math.round(this.frame.bpm * 10) / 10, bpmDetected: Math.round(this.bpmDetected),
       playing: this.playing && !this.suspended, builtin: !!d?.track.builtin, position: pos, duration: dur,
@@ -336,8 +363,9 @@ export class AudioSystem {
     // end of track -> crossfade into the next one
     if (d && this.playing && !this.switching) {
       const xf = this.settings.crossfade;
-      const remaining = d.synth ? d.synth.duration - d.synth.position : d.el && Number.isFinite(d.el.duration) && d.el.duration > 0 ? d.el.duration - d.el.currentTime : 1e9;
-      if (remaining < Math.max(0.3, xf) || d.el?.ended) { this.switching = true; this.advance(); this.switching = false; }
+      const ytDur = d.yt?.duration ?? 0;
+      const remaining = d.synth ? d.synth.duration - d.synth.position : d.yt ? (ytDur > 0 ? ytDur - d.yt.position : 1e9) : d.el && Number.isFinite(d.el.duration) && d.el.duration > 0 ? d.el.duration - d.el.currentTime : 1e9;
+      if (remaining < Math.max(0.3, xf) || d.el?.ended || d.yt?.ended) { this.switching = true; this.advance(); this.switching = false; }
     }
     this.analyser.getByteFrequencyData(this.freq);
     const binHz = this.ctx.sampleRate / this.analyser.fftSize;
@@ -381,7 +409,7 @@ export class AudioSystem {
       f.bpm = d.synth.bpm;
       f.beats = this.beatBase + d.synth.beatsAt(now);        // sample-accurate: we know where every beat is
     } else {
-      f.bpm = override || (d && !d.track.builtin && this.bpmDetected) || f.bpm || 120;
+      f.bpm = override || (d?.yt ? d.track.bpm || 124 : (d && !d.track.builtin && this.bpmDetected) || f.bpm || 120);
       f.beats += (dt * f.bpm) / 60;
       if (onset && !override) {                              // phase-lock to detected kicks
         let err = f.beats - Math.round(f.beats);
@@ -391,6 +419,12 @@ export class AudioSystem {
     f.beatCount = Math.floor(f.beats);
     f.beatPhase = f.beats - f.beatCount;
     f.beat = f.beatCount !== prevCount;
+    if (d?.yt && this.playing) {                              // no samples to analyse: pulse with the beat clock
+      const ph = f.beatPhase, t = f.beats;
+      f.bass = 0.25 + 0.75 * Math.exp(-ph * 5); f.mid = 0.45 + 0.25 * Math.sin(t * Math.PI); f.treble = 0.35 + 0.3 * Math.exp(-((ph * 2) % 1) * 6);
+      f.level = 0.75;
+      for (let i = 0; i < 64; i++) f.spectrum[i] += ((i < 16 ? f.bass : i < 40 ? f.mid : f.treble) * (0.6 + 0.4 * Math.sin(i * 1.7 + t * 3)) - f.spectrum[i]) * Math.min(1, dt * 12);
+    }
     f.kick = Math.exp(-f.beatPhase * 4.5) * (0.35 + 0.65 * Math.min(1, f.level * 1.4));
     return f;
   }

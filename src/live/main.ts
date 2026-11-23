@@ -50,6 +50,8 @@ engine.scene.add(dj.group);
 dj.play('dj_mix', 0);
 let djHypeUntil = 0;
 
+audio.ytHost = overlay.ytHost;
+audio.onTitle = (t) => { overlay.setSong(t.title, audio.frame.bpm); sendMusic(true); };
 audio.onTrack = (t) => { overlay.setSong(t.title, audio.frame.bpm); dj.playOnce('dj_transition'); sendMusic(true); };
 crowd.onArrive = () => { if (!dj.busy && Math.random() < 0.15) dj.playOnce('wave'); };
 
