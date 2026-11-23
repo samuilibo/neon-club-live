@@ -84,7 +84,9 @@ export interface MusicInfo {
 }
 
 export interface LightSettings { intensity: number; lasers: boolean; fog: number; strobe: boolean; mode: 'auto' | ClubEvent['light'] }
-export interface MusicSettings { volume: number; shuffle: boolean; repeat: 'off' | 'all' | 'one'; crossfade: number; bpmOverride: number; source: 'auto' | 'files' | 'builtin' | 'youtube'; lock: boolean; youtube: string[] }   // lock: events / chat votes never change the track
+export interface MusicSettings { volume: number; shuffle: boolean; repeat: 'off' | 'all' | 'one'; crossfade: number; bpmOverride: number; source: 'auto' | 'files' | 'builtin' | 'youtube'; lock: boolean; youtube: string[]; yt: YtCard }
+/** YouTube player card on the stream. width in px (min 356 so the player is at least 200 px tall), x/y in % for pos 'custom'. */
+export interface YtCard { width: number; pos: 'auto' | 'tl' | 'tr' | 'bl' | 'br' | 'center' | 'custom'; x: number; y: number }   // lock: events / chat votes never change the track
 export interface ScSettings { showComments: boolean; enabled: boolean; effects: Record<ScEffect, { on: boolean; minTier: number }>; baseDurationMs: number }
 
 export interface Settings {
@@ -95,6 +97,8 @@ export interface Settings {
   lights: LightSettings;
   quality: Quality;
   dynamicResolution: boolean;
+  /** manual graphics / output: width x height = exact 3D render size in px (0 = page size), scale = render scale % (0 = auto), fps = frame limit (0 = unlimited) */
+  output: { width: number; height: number; scale: number; fps: number };
   layout: 'landscape' | 'portrait';
   overlayLang: 'tr' | 'en';
   showNames: boolean;
@@ -240,10 +244,10 @@ export function defaultSettings(): Settings {
     maxCharacters: 100,
     commands,
     superchat: { enabled: true, showComments: true, effects, baseDurationMs: 6000 },
-    music: { volume: 0.8, shuffle: true, repeat: 'all', crossfade: 4, bpmOverride: 0, source: 'auto', lock: false, youtube: [] },
+    music: { volume: 0.8, shuffle: true, repeat: 'all', crossfade: 4, bpmOverride: 0, source: 'auto', lock: false, youtube: [], yt: { width: 356, pos: 'auto', x: 5, y: 55 } },
     lights: { intensity: 1, lasers: true, fog: 0.6, strobe: false, mode: 'auto' },
     quality: 'high',
-    dynamicResolution: true,
+    dynamicResolution: true, output: { width: 0, height: 0, scale: 0, fps: 0 },
     layout: 'landscape',
     overlayLang: 'tr',
     showNames: true,

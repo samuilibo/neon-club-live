@@ -1,4 +1,4 @@
-import { SOURCE_LABEL, type ClubEvent, type PublicState, type QueueInfo, type SupportEffect, type VoteState } from '../../shared/protocol.ts';
+import { SOURCE_LABEL, type ClubEvent, type PublicState, type QueueInfo, type SupportEffect, type VoteState, type YtCard } from '../../shared/protocol.ts';
 
 type Lang = 'tr' | 'en';
 const T = {
@@ -29,6 +29,7 @@ export class Overlay {
   private count!: HTMLElement; private countLabel!: HTMLElement; private song!: HTMLElement; private songLabel!: HTMLElement; private bpm!: HTMLElement;
   private ev!: HTMLElement; private evLabel!: HTMLElement; private next!: HTMLElement; private nextLabel!: HTMLElement; private timer!: HTMLElement;
   ytHost!: HTMLElement;
+  private blBox!: HTMLElement; private npBox!: HTMLElement;
   private toasts!: HTMLElement; private banner!: HTMLElement; private voteBox!: HTMLElement; private hint!: HTMLElement; private notice!: HTMLElement;
   private demo!: HTMLElement; private audioHint!: HTMLElement; private curtain!: HTMLElement; private fadeEl!: HTMLElement;
   private queueBox!: HTMLElement;
@@ -58,6 +59,7 @@ export class Overlay {
     const bl = el('div', 'hud bl', root);
     this.ytHost = el('div', 'ytcard', bl);
     const np = el('div', 'card np', bl);
+    this.blBox = bl; this.npBox = np;
     el('div', 'eq', np).innerHTML = '<i></i><i></i><i></i><i></i>';
     const npT = el('div', '', np);
     this.songLabel = el('small', '', npT); this.song = el('div', 'mid', npT); this.bpm = el('small', 'bpm', npT);
@@ -96,6 +98,19 @@ export class Overlay {
     };
     setTimeout(run, 8000);
     setInterval(run, Math.max(20, every) * 1000);
+  }
+
+  /** Size / place the YouTube card: 'auto' sits above "now playing", the rest float over the picture. */
+  setYtCard(c: YtCard) {
+    const h = this.ytHost;
+    const w = Math.max(356, Math.min(3000, Math.round(c.width) || 356));
+    h.style.width = `${w}px`;
+    h.className = h.className.replace(/\s*ytpos-\S+/g, '');
+    h.style.left = h.style.top = '';
+    if (c.pos === 'auto') { if (h.parentElement !== this.blBox) this.blBox.insertBefore(h, this.npBox); return; }
+    if (h.parentElement !== this.root) this.root.appendChild(h);
+    h.classList.add(`ytpos-${c.pos}`);
+    if (c.pos === 'custom') { h.style.left = `${Math.max(0, Math.min(100, c.x))}%`; h.style.top = `${Math.max(0, Math.min(100, c.y))}%`; }
   }
 
   setLayout(layout: 'landscape' | 'portrait') { document.body.classList.toggle('portrait', layout === 'portrait' || innerHeight > innerWidth); }

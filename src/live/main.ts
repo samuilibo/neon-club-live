@@ -19,6 +19,7 @@ const overlay = new Overlay(document.getElementById('overlay')!);
 const engine = new Engine(document.getElementById('stage')!);
 const forcedQuality = q.get('quality') as Quality | null;
 engine.forcedScale = Math.min(3, Number(q.get('scale')) || 0);
+let fpsCap = 0, lastFrameT = 0;   // panel frame limit
 engine.setQuality(forcedQuality ?? 'high', !q.has('fixedres') && !engine.forcedScale);
 const club = new Club(engine);
 const effects = new Effects(engine);
@@ -58,10 +59,17 @@ crowd.onArrive = () => { if (!dj.busy && Math.random() < 0.15) dj.playOnce('wave
 function applySettings(s: Settings) {
   const first = !settings;
   settings = s;
-  engine.setQuality(forcedQuality ?? s.quality, s.dynamicResolution && !q.has('fixedres') && !engine.forcedScale);
+  const o = s.output ?? { width: 0, height: 0, scale: 0, fps: 0 };
+  engine.manualSize = o.width >= 160 && o.height >= 160 ? { w: Math.min(7680, Math.round(o.width)), h: Math.min(7680, Math.round(o.height)) } : null;
+  engine.manualScale = o.scale > 0 ? Math.max(0.25, Math.min(3, o.scale / 100)) : 0;
+  fpsCap = o.fps > 0 ? Math.max(10, o.fps) : 0;
+  const manual = !!engine.manualSize || !!engine.manualScale;
+  engine.setQuality(forcedQuality ?? s.quality, s.dynamicResolution && !manual && !q.has('fixedres') && !engine.forcedScale);
+  engine.resize();
   club.setLights(s.lights);
   audio.setSettings(q.has('mute') ? { ...s.music, volume: 0 } : s.music);
   overlay.setLang(s.overlayLang);
+  if (s.music.yt) overlay.setYtCard(s.music.yt);
   overlay.setLayout((q.get('layout') as 'portrait' | null) ?? s.layout);
   crowd.setTagOptions(s.showNames, s.showAvatars);
   director.auto = s.cameraAuto;
@@ -231,6 +239,11 @@ const clock = new THREE.Timer();
 let now = 0, secAcc = 0, frames = 0;
 function frame() {
   requestAnimationFrame(frame);
+  if (fpsCap) {                                             // panel frame limit (e.g. 30 for TikTok): skip early vsyncs
+    const t = performance.now();
+    if (t - lastFrameT < 1000 / fpsCap - 2) return;
+    lastFrameT = t;
+  }
   clock.update();
   const raw = clock.getDelta(), dt = Math.min(0.25, raw);
   now += dt;

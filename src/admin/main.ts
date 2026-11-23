@@ -1,7 +1,7 @@
 import { EVENTS } from '../../shared/events.ts';
 import {
   COMMANDS, GENRES, GENRE_LABEL, SC_EFFECTS,
-  type AdminMsg, type AdminStatus, type ChatLogItem, type LogItem, type Member, type PublicState, type ServerMsg, type Settings,
+  type AdminMsg, type AdminStatus, type ChatLogItem, type LogItem, type Member, type PublicState, type ServerMsg, type Settings, type YtCard,
 } from '../../shared/protocol.ts';
 
 type Lang = 'tr' | 'en';
@@ -35,7 +35,13 @@ const I18N: Record<string, [string, string]> = {
   noFiles: ['music/ klasöründe desteklenen dosya bulunamadı (mp3, wav, ogg, m4a, aac, flac, opus, webm). Yerleşik müzik çalıyor.', 'No supported files in music/ (mp3, wav, ogg, m4a, aac, flac, opus, webm). Playing built-in music.'],
   ytLinks: ['YouTube bağlantıları (her satıra bir link, isteğe bağlı BPM: link | 128)', 'YouTube links (one per line, optional BPM: link | 128)'],
   ytSave: ['Bağlantıları kaydet', 'Save links'],
+  ytW: ['Kart genişliği (px)', 'Card width (px)'], ytPos: ['Konum', 'Position'],
+  yt_auto: ['Şimdi çalıyor üstü', 'Above now playing'], yt_tl: ['Sol üst', 'Top left'], yt_tr: ['Sağ üst', 'Top right'], yt_bl: ['Sol alt', 'Bottom left'],
+  yt_br: ['Sağ alt', 'Bottom right'], yt_center: ['Orta', 'Center'], yt_custom: ['Elle (X/Y %)', 'Manual (X/Y %)'],
   ytNote: ['Resmi YouTube oynatıcısıyla çalar, yayında küçük bir video kartı olarak görünür (YouTube kuralı). Sadece kullanım izni olan şarkıları ekle. Kaynağı "youtube" seçersen yalnızca bu linkler çalar. Yerleştirmeye kapalı videolar atlanır, bazı videolarda reklam çıkabilir.', 'Plays through the official YouTube player and shows as a small video card on stream (YouTube rule). Only add songs you may use. Choose source "youtube" to play only these links. Videos that block embedding are skipped; some videos may show ads.'],
+  outRes: ['Çözünürlük (G × Y)', 'Resolution (W × H)'], outPre: ['Hazır seç…', 'Preset…'], outAuto: ['Otomatik (sayfa boyutu)', 'Automatic (page size)'],
+  outScale: ['Render ölçeği %', 'Render scale %'], outFps: ['FPS sınırı', 'FPS limit'], outUnl: ['Sınırsız', 'Unlimited'],
+  outNote: ['0 = otomatik. Çözünürlük girilirse 3D görüntü tam o piksel boyutunda çizilir ve dinamik çözünürlük kapanır. Render ölçeği %100 = sayfa boyutu, %150 = daha keskin. TikTok için 30 FPS ekran kartını yarı yarıya rahatlatır. Değişiklikler yayını kesmeden anında uygulanır.', '0 = automatic. A resolution renders the 3D picture at exactly that pixel size and turns dynamic resolution off. Render scale 100 % = page size, 150 % = sharper. 30 FPS for TikTok halves the GPU load. Changes apply instantly without interrupting the stream.'],
   lights: ['Işıklar', 'Lights'], intensity: ['Yoğunluk', 'Intensity'], lasers: ['Lazerler', 'Lasers'], fog: ['Sis', 'Fog'], strobe: ['Flaş (yumuşak)', 'Strobe (soft)'], mode: ['Mod', 'Mode'],
   camera: ['Kamera', 'Camera'], auto: ['Otomatik', 'Auto'], welcome: ['Yeni gelen için giriş çekimi', 'Welcome shot for new arrivals'],
   events: ['Etkinlikler', 'Events'], current: ['Şu an', 'Current'], startEvent: ['Başlat', 'Start'], vote: ['Oylama başlat', 'Start vote'], eventMinutes: ['Etkinlik süresi (dk)', 'Event length (min)'], autoVote: ['Otomatik oylama', 'Automatic vote'],
@@ -121,6 +127,10 @@ function render() {
     <label style="min-width:0">${t('source')}</label><select id="msrc">${['auto', 'files', 'builtin', 'youtube'].map((v) => opt(v, v, s.music.source)).join('')}</select></div>
   <div class="row" style="flex-direction:column;align-items:stretch"><label>${t('ytLinks')}</label>
     <textarea id="ytl" rows="4" spellcheck="false" placeholder="https://www.youtube.com/watch?v=...&#10;https://youtu.be/... | 128" style="width:100%;font:inherit;font-size:.85em;background:#0d0d16;color:#fff;border:1px solid #333;border-radius:6px;padding:6px">${esc((s.music.youtube ?? []).join('\n'))}</textarea>
+    <div class="row" style="margin-top:6px"><label style="min-width:0">${t('ytW')}</label><input type="number" id="ytW" min="356" max="3000" step="10" value="${s.music.yt?.width ?? 356}" style="width:6em">
+      <label style="min-width:0">${t('ytPos')}</label><select id="ytP">${(['auto', 'tl', 'tr', 'bl', 'br', 'center', 'custom'] as const).map((v) => opt(v, t(`yt_${v}`), s.music.yt?.pos ?? 'auto')).join('')}</select>
+      <label style="min-width:0">X %</label><input type="number" id="ytX" min="0" max="100" value="${s.music.yt?.x ?? 5}" style="width:4.5em">
+      <label style="min-width:0">Y %</label><input type="number" id="ytY" min="0" max="100" value="${s.music.yt?.y ?? 55}" style="width:4.5em"></div>
     <button id="ytSave" style="margin-top:6px">${t('ytSave')}</button><p class="mut" style="margin:4px 0 0">${t('ytNote')}</p></div>
   <div class="row"><label style="min-width:0">${chk('mlock', s.music.lock)} ${t('musicLock')}</label></div>
   <div class="row"><label>${t('genre')}</label><select id="genre">${GENRES.map((g) => opt(g, GENRE_LABEL[g], '')).join('')}</select><button id="genreGo">▶</button></div>
@@ -138,6 +148,11 @@ function render() {
   <div class="row"><label>${t('eventMinutes')}</label><input type="number" id="evMin" min="1" max="120" value="${s.eventMinutes}"><label style="min-width:0">${t('autoVote')}</label>${chk('evAuto', s.eventVoting)}</div></section>
 <section><h2>${t('graphics')}</h2>
   <div class="row"><label>${t('quality')}</label><select id="q">${['low', 'medium', 'high', 'ultra'].map((v) => opt(v, v, s.quality)).join('')}</select><label style="min-width:0">${t('dynres')}</label>${chk('dyn', s.dynamicResolution)}</div>
+  <div class="row"><label>${t('outRes')}</label><input type="number" id="oW" min="0" max="7680" step="2" value="${s.output?.width ?? 0}" style="width:6em"> × <input type="number" id="oH" min="0" max="7680" step="2" value="${s.output?.height ?? 0}" style="width:6em">
+    <select id="oPre"><option value="">${t('outPre')}</option>${['0x0', '1080x1920', '1440x2560', '2160x3840', '720x1280', '1920x1080', '2560x1440', '3840x2160', '1280x720'].map((v) => `<option value="${v}">${v === '0x0' ? t('outAuto') : v.replace('x', ' × ')}</option>`).join('')}</select></div>
+  <div class="row"><label>${t('outScale')}</label><input type="number" id="oS" min="0" max="300" step="5" value="${s.output?.scale ?? 0}" style="width:6em">
+    <label style="min-width:0">${t('outFps')}</label><select id="oF">${[0, 24, 30, 48, 60].map((v) => opt(String(v), v ? `${v} FPS` : t('outUnl'), String(s.output?.fps ?? 0))).join('')}</select></div>
+  <p class="mut" style="margin:2px 0 6px">${t('outNote')}</p>
   <div class="row"><label>${t('layout')}</label><select id="lay">${opt('landscape', '1920×1080', s.layout)}${opt('portrait', '1080×1920', s.layout)}</select><label style="min-width:0">${t('overlayLang')}</label><select id="olang">${opt('tr', 'Türkçe', s.overlayLang)}${opt('en', 'English', s.overlayLang)}</select></div>
   <div class="row"><label>${t('names')}</label>${chk('names', s.showNames)}<label style="min-width:0">${t('avatars')}</label>${chk('avs', s.showAvatars)}<label style="min-width:0">${t('vipOpen')}</label>${chk('vipOpen', s.vipOpen)}</div>
   <h2 style="margin-top:12px">${t('perf')}</h2><div class="kv" id="perf"></div><div class="row"><button id="bench">${t('bench')}</button></div></section>
@@ -192,9 +207,11 @@ function bind() {
   };
   on('scOn', 'change', scUpd); on('scDur', 'change', scUpd); on('scCom', 'change', scUpd);
   for (const e of SC_EFFECTS) { on(`sc_on_${e}`, 'change', scUpd); on(`sc_t_${e}`, 'change', scUpd); }
-  const mUpd = () => { $('xfV').textContent = val('xf'); patch({ music: { volume: num('vol'), crossfade: num('xf'), bpmOverride: num('bpmO'), shuffle: checked('shuf'), repeat: val('rep') as Settings['music']['repeat'], source: val('msrc') as Settings['music']['source'], lock: checked('mlock'), youtube: state!.settings.music.youtube ?? [] } }); };
+  const mUpd = () => { $('xfV').textContent = val('xf'); patch({ music: { volume: num('vol'), crossfade: num('xf'), bpmOverride: num('bpmO'), shuffle: checked('shuf'), repeat: val('rep') as Settings['music']['repeat'], source: val('msrc') as Settings['music']['source'], lock: checked('mlock'), youtube: state!.settings.music.youtube ?? [], yt: state!.settings.music.yt } }); };
   for (const id of ['vol', 'xf']) on(id, 'input', mUpd);
   for (const id of ['bpmO', 'shuf', 'rep', 'msrc', 'mlock']) on(id, 'change', mUpd);
+  const ytUpd = () => patch({ music: { ...state!.settings.music, yt: { width: Math.max(356, num('ytW') || 356), pos: val('ytP') as YtCard['pos'], x: num('ytX'), y: num('ytY') } } });
+  for (const id of ['ytW', 'ytP', 'ytX', 'ytY']) on(id, 'change', ytUpd);
   on('ytSave', 'click', () => {
     const lines = ($('ytl') as HTMLTextAreaElement).value.split(/\r?\n/).map((l) => l.trim()).filter(Boolean).slice(0, 200);
     patch({ music: { ...state!.settings.music, youtube: lines } });
@@ -209,6 +226,9 @@ function bind() {
   document.querySelectorAll<HTMLElement>('[data-cam]').forEach((b) => b.addEventListener('click', () => send({ t: 'camera', shot: b.dataset.cam! })));
   on('evGo', 'click', () => send({ t: 'event', id: val('evSel') })); on('evVote', 'click', () => send({ t: 'eventVote' }));
   on('evMin', 'change', () => patch({ eventMinutes: num('evMin') })); on('evAuto', 'change', () => patch({ eventVoting: checked('evAuto') }));
+  const oUpd = () => patch({ output: { width: Math.max(0, num('oW') || 0), height: Math.max(0, num('oH') || 0), scale: Math.max(0, num('oS') || 0), fps: Number(val('oF')) || 0 } });
+  for (const id of ['oW', 'oH', 'oS', 'oF']) on(id, 'change', oUpd);
+  on('oPre', 'change', () => { const v = val('oPre'); if (!v) return; const [w, h] = v.split('x'); ($('oW') as HTMLInputElement).value = w; ($('oH') as HTMLInputElement).value = h; oUpd(); });
   on('q', 'change', () => patch({ quality: val('q') as Settings['quality'] })); on('dyn', 'change', () => patch({ dynamicResolution: checked('dyn') }));
   on('lay', 'change', () => patch({ layout: val('lay') as Settings['layout'] })); on('olang', 'change', () => patch({ overlayLang: val('olang') as Lang }));
   on('names', 'change', () => patch({ showNames: checked('names') })); on('avs', 'change', () => patch({ showAvatars: checked('avs') })); on('vipOpen', 'change', () => patch({ vipOpen: checked('vipOpen') }));

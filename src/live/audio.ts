@@ -198,7 +198,7 @@ export class AudioSystem {
   private analyser: AnalyserNode;
   private freq: Uint8Array<ArrayBuffer>;
   private deck: Deck | null = null;
-  private settings: MusicSettings = { volume: 0.8, shuffle: true, repeat: 'all', crossfade: 4, bpmOverride: 0, source: 'auto', lock: false, youtube: [] };
+  private settings: MusicSettings = { volume: 0.8, shuffle: true, repeat: 'all', crossfade: 4, bpmOverride: 0, source: 'auto', lock: false, youtube: [], yt: { width: 356, pos: 'auto', x: 5, y: 55 } };
   private flux: number[] = [];
   private prevLow = 0;
   private onsets: number[] = [];

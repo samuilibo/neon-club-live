@@ -56,6 +56,8 @@ export class Engine {
   profile: QualityProfile = PROFILES.high;
   quality: Quality = 'high';
   dynamicRes = true;
+  manualScale = 0;         // panel: render scale (1 = 100 %), 0 = automatic
+  manualSize: { w: number; h: number } | null = null;   // panel: exact render size in px
   forcedScale = 0;          // ?scale=2 renders at 2× (e.g. 3840×2160 screenshots from a 1920×1080 page)
   scale = 1;
   stats: LiveStats;
@@ -105,20 +107,22 @@ export class Engine {
 
   setQuality(q: Quality, dynamicRes: boolean) {
     this.dynamicRes = dynamicRes;
-    if (q === this.quality && this.composer) { if (!dynamicRes) { this.scale = this.forcedScale || this.profile.maxScale; this.resize(); } return; }
+    if (q === this.quality && this.composer) { if (!dynamicRes) { this.scale = this.forcedScale || this.manualScale || this.profile.maxScale; this.resize(); } return; }
     this.quality = q;
     this.profile = PROFILES[q];
     this.renderer.shadowMap.enabled = this.profile.shadows > 0;
     this.scale = Math.min(this.scale, this.profile.maxScale);
-    if (!dynamicRes) this.scale = this.forcedScale || this.profile.maxScale;
+    if (!dynamicRes) this.scale = this.forcedScale || this.manualScale || this.profile.maxScale;
     this.buildComposer();
     this.resize();
     for (const fn of this.onQuality) fn(this.profile);
   }
 
   resize() {
-    this.width = this.host.clientWidth || innerWidth;
-    this.height = this.host.clientHeight || innerHeight;
+    const m = this.manualSize;
+    this.width = m ? m.w : this.host.clientWidth || innerWidth;
+    this.height = m ? m.h : this.host.clientHeight || innerHeight;
+    if (m) this.scale = 1;                                   // exact pixel size: the canvas is stretched to the page by CSS
     this.camera.aspect = this.width / this.height;
     // portrait output keeps a comparable horizontal view of the club
     this.camera.fov = this.camera.aspect < 1 ? 78 : 50;
