@@ -42,6 +42,8 @@ const I18N: Record<string, [string, string]> = {
   outRes: ['Çözünürlük (G × Y)', 'Resolution (W × H)'], outPre: ['Hazır seç…', 'Preset…'], outAuto: ['Otomatik (sayfa boyutu)', 'Automatic (page size)'],
   outScale: ['Render ölçeği %', 'Render scale %'], outFps: ['FPS sınırı', 'FPS limit'], outUnl: ['Sınırsız', 'Unlimited'],
   outNote: ['0 = otomatik. Çözünürlük girilirse 3D görüntü tam o piksel boyutunda çizilir ve dinamik çözünürlük kapanır. Render ölçeği %100 = sayfa boyutu, %150 = daha keskin. TikTok için 30 FPS ekran kartını yarı yarıya rahatlatır. Değişiklikler yayını kesmeden anında uygulanır.', '0 = automatic. A resolution renders the 3D picture at exactly that pixel size and turns dynamic resolution off. Render scale 100 % = page size, 150 % = sharper. 30 FPS for TikTok halves the GPU load. Changes apply instantly without interrupting the stream.'],
+  layCustom: ['Özel (G × Y)', 'Custom (W × H)'], laySize: ['Özel yerleşim (G × Y)', 'Custom layout (W × H)'], layHud: ['Arayüz ölçeği %', 'HUD scale %'],
+  layNote: ['Yerleşim "Özel" seçilince yayın ekranı bu oranda çizilir. Sayfa farklı orandaysa kenarlarda siyah boşluk kalır. Özel yerleşim OBS linkindeki ?layout= ayarını geçersiz kılar. Arayüz ölçeği yazı ve kartları büyütür/küçültür, her yerleşimde çalışır.', 'With layout "Custom" the stream picture uses this aspect (black bars if the page differs) and overrides ?layout= in the OBS link. HUD scale enlarges/shrinks text and cards in every layout.'],
   lights: ['Işıklar', 'Lights'], intensity: ['Yoğunluk', 'Intensity'], lasers: ['Lazerler', 'Lasers'], fog: ['Sis', 'Fog'], strobe: ['Flaş (yumuşak)', 'Strobe (soft)'], mode: ['Mod', 'Mode'],
   camera: ['Kamera', 'Camera'], auto: ['Otomatik', 'Auto'], welcome: ['Yeni gelen için giriş çekimi', 'Welcome shot for new arrivals'],
   events: ['Etkinlikler', 'Events'], current: ['Şu an', 'Current'], startEvent: ['Başlat', 'Start'], vote: ['Oylama başlat', 'Start vote'], eventMinutes: ['Etkinlik süresi (dk)', 'Event length (min)'], autoVote: ['Otomatik oylama', 'Automatic vote'],
@@ -148,12 +150,15 @@ function render() {
   <div class="row"><label>${t('eventMinutes')}</label><input type="number" id="evMin" min="1" max="120" value="${s.eventMinutes}"><label style="min-width:0">${t('autoVote')}</label>${chk('evAuto', s.eventVoting)}</div></section>
 <section><h2>${t('graphics')}</h2>
   <div class="row"><label>${t('quality')}</label><select id="q">${['low', 'medium', 'high', 'ultra'].map((v) => opt(v, v, s.quality)).join('')}</select><label style="min-width:0">${t('dynres')}</label>${chk('dyn', s.dynamicResolution)}</div>
+  <div class="row"><label>${t('laySize')}</label><input type="number" id="lcW" min="100" max="7680" step="2" value="${s.layoutCustom?.width ?? 1080}" style="width:6em"> × <input type="number" id="lcH" min="100" max="7680" step="2" value="${s.layoutCustom?.height ?? 1920}" style="width:6em">
+    <label style="min-width:0">${t('layHud')}</label><input type="number" id="lcU" min="40" max="300" step="5" value="${s.layoutCustom?.hud ?? 100}" style="width:5em"></div>
+  <p class="mut" style="margin:2px 0 6px">${t('layNote')}</p>
   <div class="row"><label>${t('outRes')}</label><input type="number" id="oW" min="0" max="7680" step="2" value="${s.output?.width ?? 0}" style="width:6em"> × <input type="number" id="oH" min="0" max="7680" step="2" value="${s.output?.height ?? 0}" style="width:6em">
     <select id="oPre"><option value="">${t('outPre')}</option>${['0x0', '1080x1920', '1440x2560', '2160x3840', '720x1280', '1920x1080', '2560x1440', '3840x2160', '1280x720'].map((v) => `<option value="${v}">${v === '0x0' ? t('outAuto') : v.replace('x', ' × ')}</option>`).join('')}</select></div>
   <div class="row"><label>${t('outScale')}</label><input type="number" id="oS" min="0" max="300" step="5" value="${s.output?.scale ?? 0}" style="width:6em">
     <label style="min-width:0">${t('outFps')}</label><select id="oF">${[0, 24, 30, 48, 60].map((v) => opt(String(v), v ? `${v} FPS` : t('outUnl'), String(s.output?.fps ?? 0))).join('')}</select></div>
   <p class="mut" style="margin:2px 0 6px">${t('outNote')}</p>
-  <div class="row"><label>${t('layout')}</label><select id="lay">${opt('landscape', '1920×1080', s.layout)}${opt('portrait', '1080×1920', s.layout)}</select><label style="min-width:0">${t('overlayLang')}</label><select id="olang">${opt('tr', 'Türkçe', s.overlayLang)}${opt('en', 'English', s.overlayLang)}</select></div>
+  <div class="row"><label>${t('layout')}</label><select id="lay">${opt('landscape', '1920×1080', s.layout)}${opt('portrait', '1080×1920', s.layout)}${opt('custom', t('layCustom'), s.layout)}</select><label style="min-width:0">${t('overlayLang')}</label><select id="olang">${opt('tr', 'Türkçe', s.overlayLang)}${opt('en', 'English', s.overlayLang)}</select></div>
   <div class="row"><label>${t('names')}</label>${chk('names', s.showNames)}<label style="min-width:0">${t('avatars')}</label>${chk('avs', s.showAvatars)}<label style="min-width:0">${t('vipOpen')}</label>${chk('vipOpen', s.vipOpen)}</div>
   <h2 style="margin-top:12px">${t('perf')}</h2><div class="kv" id="perf"></div><div class="row"><button id="bench">${t('bench')}</button></div></section>
 <section><h2>${t('demo')}</h2>
@@ -230,7 +235,9 @@ function bind() {
   for (const id of ['oW', 'oH', 'oS', 'oF']) on(id, 'change', oUpd);
   on('oPre', 'change', () => { const v = val('oPre'); if (!v) return; const [w, h] = v.split('x'); ($('oW') as HTMLInputElement).value = w; ($('oH') as HTMLInputElement).value = h; oUpd(); });
   on('q', 'change', () => patch({ quality: val('q') as Settings['quality'] })); on('dyn', 'change', () => patch({ dynamicResolution: checked('dyn') }));
-  on('lay', 'change', () => patch({ layout: val('lay') as Settings['layout'] })); on('olang', 'change', () => patch({ overlayLang: val('olang') as Lang }));
+  on('lay', 'change', () => patch({ layout: val('lay') as Settings['layout'] }));
+  const lcUpd = () => patch({ layoutCustom: { width: Math.max(100, num('lcW') || 1080), height: Math.max(100, num('lcH') || 1920), hud: Math.max(40, Math.min(300, num('lcU') || 100)) } });
+  for (const id of ['lcW', 'lcH', 'lcU']) on(id, 'change', lcUpd); on('olang', 'change', () => patch({ overlayLang: val('olang') as Lang }));
   on('names', 'change', () => patch({ showNames: checked('names') })); on('avs', 'change', () => patch({ showAvatars: checked('avs') })); on('vipOpen', 'change', () => patch({ vipOpen: checked('vipOpen') }));
   on('bench', 'click', () => send({ t: 'test', what: 'bench' }));
   document.querySelectorAll<HTMLElement>('[data-demo]').forEach((b) => b.addEventListener('click', () => { send({ t: 'demo', cmd: 'stop' }); if (Number(b.dataset.demo) > s.maxCharacters) patch({ maxCharacters: Number(b.dataset.demo) }); send({ t: 'demo', cmd: 'start', count: Number(b.dataset.demo) }); }));

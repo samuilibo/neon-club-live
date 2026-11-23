@@ -17,6 +17,7 @@ import { Overlay } from './overlay.ts';
 const q = new URLSearchParams(location.search);
 const overlay = new Overlay(document.getElementById('overlay')!);
 const engine = new Engine(document.getElementById('stage')!);
+addEventListener('resize', () => { if (overlay.fitLayout()) engine.resize(); });
 const forcedQuality = q.get('quality') as Quality | null;
 engine.forcedScale = Math.min(3, Number(q.get('scale')) || 0);
 let fpsCap = 0, lastFrameT = 0;   // panel frame limit
@@ -70,7 +71,9 @@ function applySettings(s: Settings) {
   audio.setSettings(q.has('mute') ? { ...s.music, volume: 0 } : s.music);
   overlay.setLang(s.overlayLang);
   if (s.music.yt) overlay.setYtCard(s.music.yt);
-  overlay.setLayout((q.get('layout') as 'portrait' | null) ?? s.layout);
+  // a custom size set in the panel wins over ?layout= in the OBS link
+  overlay.setLayout(s.layout === 'custom' ? 'custom' : (q.get('layout') as 'portrait' | null) ?? s.layout, s.layoutCustom);
+  engine.resize();
   crowd.setTagOptions(s.showNames, s.showAvatars);
   director.auto = s.cameraAuto;
   if (state) overlay.setEvent(event, state.nextEvent, state.eventEndsAt);

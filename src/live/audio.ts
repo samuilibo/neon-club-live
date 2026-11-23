@@ -300,7 +300,7 @@ export class AudioSystem {
     const old = this.deck;
     if (this.ctx.state === 'suspended' && this.playing) void this.ctx.resume();
     if (old?.synth) old.synth.stop(xf);
-    if (old?.yt) old.yt.stop(xf);
+    if (old?.yt) { if (old.yt.failed) old.yt.destroy(); else old.yt.stop(xf); }   // a broken video disappears at once
     if (old?.el && old.gain) {
       const g = old.gain, el = old.el;
       g.gain.cancelScheduledValues(this.ctx.currentTime);

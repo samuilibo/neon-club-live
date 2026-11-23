@@ -99,7 +99,9 @@ export interface Settings {
   dynamicResolution: boolean;
   /** manual graphics / output: width x height = exact 3D render size in px (0 = page size), scale = render scale % (0 = auto), fps = frame limit (0 = unlimited) */
   output: { width: number; height: number; scale: number; fps: number };
-  layout: 'landscape' | 'portrait';
+  layout: 'landscape' | 'portrait' | 'custom';
+  /** layout 'custom': picture aspect W x H (letterboxed into the page); hud = overlay text/card size in % (100 = normal) */
+  layoutCustom: { width: number; height: number; hud: number };
   overlayLang: 'tr' | 'en';
   showNames: boolean;
   showAvatars: boolean;
@@ -248,7 +250,7 @@ export function defaultSettings(): Settings {
     lights: { intensity: 1, lasers: true, fog: 0.6, strobe: false, mode: 'auto' },
     quality: 'high',
     dynamicResolution: true, output: { width: 0, height: 0, scale: 0, fps: 0 },
-    layout: 'landscape',
+    layout: 'landscape', layoutCustom: { width: 1080, height: 1920, hud: 100 },
     overlayLang: 'tr',
     showNames: true,
     showAvatars: true,

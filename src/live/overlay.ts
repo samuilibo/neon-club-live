@@ -113,7 +113,30 @@ export class Overlay {
     if (c.pos === 'custom') { h.style.left = `${Math.max(0, Math.min(100, c.x))}%`; h.style.top = `${Math.max(0, Math.min(100, c.y))}%`; }
   }
 
-  setLayout(layout: 'landscape' | 'portrait') { document.body.classList.toggle('portrait', layout === 'portrait' || innerHeight > innerWidth); }
+  private layoutCfg: { layout: string; w: number; h: number; hud: number } = { layout: 'landscape', w: 0, h: 0, hud: 100 };
+  /** 'custom' fits a W x H picture into the page (black bars if the aspect differs); everything scales with that box. */
+  setLayout(layout: 'landscape' | 'portrait' | 'custom', custom?: { width: number; height: number; hud: number }) {
+    this.layoutCfg = { layout, w: custom?.width ?? 0, h: custom?.height ?? 0, hud: custom?.hud || 100 };
+    this.fitLayout();
+  }
+  /** Returns true when the stage box changed size. */
+  fitLayout(): boolean {
+    const c = this.layoutCfg, stage = document.getElementById('stage')!, root = this.root;
+    let W = innerWidth, H = innerHeight;
+    const custom = c.layout === 'custom' && c.w >= 100 && c.h >= 100;
+    if (custom) {
+      const k = Math.min(innerWidth / c.w, innerHeight / c.h);
+      W = Math.round(c.w * k); H = Math.round(c.h * k);
+      for (const e of [stage, root]) Object.assign(e.style, { left: `${Math.round((innerWidth - W) / 2)}px`, top: `${Math.round((innerHeight - H) / 2)}px`, width: `${W}px`, height: `${H}px`, right: 'auto', bottom: 'auto' });
+    } else for (const e of [stage, root]) Object.assign(e.style, { left: '', top: '', width: '', height: '', right: '', bottom: '' });
+    const portrait = custom ? c.h > c.w : c.layout === 'portrait' || innerHeight > innerWidth;
+    document.body.classList.toggle('portrait', portrait);
+    const base = portrait ? Math.max(14, Math.min(96, W * 0.025)) : Math.max(11, Math.min(64, W * 0.0105));
+    root.style.fontSize = `${(base * c.hud / 100).toFixed(2)}px`;
+    const changed = stage.dataset.box !== `${W}x${H}`;
+    stage.dataset.box = `${W}x${H}`;
+    return changed;
+  }
   fade(o: number) { this.fadeEl.style.opacity = String(o); }
   setMode(mode: PublicState['mode']) { this.demo.style.display = mode === 'demo' ? '' : 'none'; }
   setEmergency(on: boolean) { this.curtain.classList.toggle('on', on); }
