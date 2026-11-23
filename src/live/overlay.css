@@ -51,6 +51,10 @@ html,body{margin:0;height:100%;background:#000;overflow:hidden;cursor:none;font-
 .notice{position:absolute;left:50%;bottom:13%;transform:translateX(-50%);padding:.5em 1.1em;font-size:.9em;max-width:80%;text-align:center;opacity:0;transition:opacity .4s}
 .notice.on{opacity:1}
 .hint{position:absolute;left:0;right:0;bottom:0;padding:.55em 2.2%;font-size:.8em;letter-spacing:.03em;background:linear-gradient(0deg,rgba(0,0,0,.7),transparent);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center;opacity:.92}
+.mticker{position:absolute;left:0;right:0;top:46%;overflow:hidden;white-space:nowrap;pointer-events:none;opacity:0;transition:opacity .6s;background:linear-gradient(90deg,transparent,rgba(10,0,25,.72) 12%,rgba(10,0,25,.72) 88%,transparent);border-top:2px solid var(--c1,#ff2bd6);border-bottom:2px solid var(--c2,#29f0ff);padding:.45em 0;font-size:1.15em;font-weight:800;letter-spacing:.04em;text-shadow:0 0 .5em rgba(255,43,214,.8)}
+.mticker.on{opacity:1}
+.mticker span{display:inline-block;padding-left:100%;animation:mtick linear 1 forwards}
+@keyframes mtick{from{transform:translateX(0)}to{transform:translateX(-100%)}}
 .audiohint{position:absolute;right:2.2%;bottom:7.5%;background:#e8002d;padding:.4em .8em;border-radius:.5em;font-size:.8em;display:none}
 .audiohint.on{display:block}
 .curtain{position:absolute;inset:0;background:#000;display:none;align-items:center;justify-content:center;font-size:2em;letter-spacing:.3em;font-weight:800}

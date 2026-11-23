@@ -63,6 +63,8 @@ export class Overlay {
     this.banner = el('div', 'banner', root);
     this.notice = el('div', 'notice', root);
     this.hint = el('div', 'hint', root);
+    if (new URLSearchParams(location.search).get('hint') === '0') this.hint.style.display = 'none';   // ?hint=0 hides the bottom line
+    this.startTicker(root);
     this.audioHint = el('div', 'audiohint', root);
     this.curtain = el('div', 'curtain', root);
     this.setLang('tr');
@@ -73,6 +75,25 @@ export class Overlay {
     const t = T[l];
     this.countLabel.textContent = t.inClub; this.songLabel.textContent = t.now; this.evLabel.textContent = t.event; this.nextLabel.textContent = t.next;
     this.hint.textContent = t.hint; this.demo.textContent = t.demo; this.audioHint.textContent = t.audio; this.curtain.textContent = t.stopped;
+  }
+
+  // Scrolling copy of the command hint that crosses the middle of the screen now and then.
+  // ?ticker=<seconds between runs> (default 90), ?ticker=0 turns it off.
+  private startTicker(root: HTMLElement) {
+    const p = new URLSearchParams(location.search).get('ticker');
+    const every = p === null ? 90 : Number(p);
+    if (!(every > 0)) return;
+    const band = el('div', 'mticker', root);
+    const run = () => {
+      band.innerHTML = '';
+      const span = el('span', '', band, this.hint.textContent ?? '');
+      const secs = Math.max(12, Math.min(40, span.textContent!.length * 0.16));
+      span.style.animationDuration = `${secs}s`;
+      band.classList.add('on');
+      span.addEventListener('animationend', () => band.classList.remove('on'), { once: true });
+    };
+    setTimeout(run, 8000);
+    setInterval(run, Math.max(20, every) * 1000);
   }
 
   setLayout(layout: 'landscape' | 'portrait') { document.body.classList.toggle('portrait', layout === 'portrait' || innerHeight > innerWidth); }
